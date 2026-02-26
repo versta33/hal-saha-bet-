@@ -5,23 +5,9 @@ function showBet(teamName) {
     const betResult = document.getElementById('betResult');
     const betAmount = document.getElementById('betAmount');
     
-    // Güncel bakiyeyi users listesinden al (0 olsa bile değiştirme)
-    let users = JSON.parse(localStorage.getItem('users')) || [];
-    const savedUser = users.find(u => u.email === currentUser.email);
-    
-    if (savedUser) {
-        // Sadece undefined veya null ise 2000 yap, 0 ise 0 kalsın
-        if (savedUser.balance === undefined || savedUser.balance === null) {
-            savedUser.balance = 2000;
-            const userIndex = users.findIndex(u => u.email === currentUser.email);
-            users[userIndex].balance = 2000;
-            localStorage.setItem('users', JSON.stringify(users));
-        }
-        currentUser.balance = savedUser.balance;
-    }
-    
+    // Güncel bakiyeyi göster
     teamNameElement.textContent = teamName;
-    modalBalance.textContent = currentUser.balance;
+    modalBalance.textContent = currentUser.balance || 0;
     betResult.style.display = 'none';
     betAmount.value = '';
     
@@ -33,7 +19,7 @@ function closeModal() {
     modal.style.display = 'none';
 }
 
-function confirmBet() {
+async function confirmBet() {
     const betAmountInput = document.getElementById('betAmount');
     const amount = parseInt(betAmountInput.value);
     const teamName = document.getElementById('teamName').textContent;
@@ -44,32 +30,35 @@ function confirmBet() {
         return;
     }
     
-    // Güncel bakiyeyi users listesinden al
-    let users = JSON.parse(localStorage.getItem('users')) || [];
-    const userIndex = users.findIndex(u => u.email === currentUser.email);
-    
-    if (userIndex === -1) {
-        alert('❌ Kullanıcı bulunamadı!');
-        return;
-    }
-    
-    // Bakiye kontrolü - sadece undefined veya null ise 2000 yap
-    if (users[userIndex].balance === undefined || users[userIndex].balance === null) {
-        users[userIndex].balance = 2000;
-    }
-    
     // Yetersiz bakiye kontrolü
-    if (amount > users[userIndex].balance) {
-        alert('❌ Yetersiz bakiye! Mevcut bakiyeniz: ' + users[userIndex].balance);
+    if (amount > currentUser.balance) {
+        alert('❌ Yetersiz bakiye! Mevcut bakiyeniz: ' + currentUser.balance);
         return;
     }
     
     // Bakiyeden düş
-    users[userIndex].balance = users[userIndex].balance - amount;
-    currentUser.balance = users[userIndex].balance;
+    currentUser.balance = currentUser.balance - amount;
     
-    // Users listesini kaydet
-    localStorage.setItem('users', JSON.stringify(users));
+    if (useFirebase) {
+        // Firebase'de güncelle
+        try {
+            if (currentUser.id) {
+                await db.collection('users').doc(currentUser.id).update({
+                    balance: currentUser.balance
+                });
+            }
+        } catch (error) {
+            console.error('Firebase bakiye güncelleme hatası:', error);
+        }
+    } else {
+        // LocalStorage'da güncelle
+        let users = JSON.parse(localStorage.getItem('users')) || [];
+        const userIndex = users.findIndex(u => u.name === currentUser.name);
+        if (userIndex !== -1) {
+            users[userIndex].balance = currentUser.balance;
+            localStorage.setItem('users', JSON.stringify(users));
+        }
+    }
     
     // CurrentUser'ı güncelle
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -151,30 +140,53 @@ function checkAuth() {
         currentUser = JSON.parse(user);
         
         // Admin kontrolü
-        if (currentUser.email === 'admin@admin.com') {
+        if (currentUser.name === 'Admin') {
             showAdminPanel();
             return;
         }
         
         // Kullanıcının güncel bakiyesini users listesinden al
-        let users = JSON.parse(localStorage.getItem('users')) || [];
-        const savedUser = users.find(u => u.email === currentUser.email);
-        
-        if (savedUser) {
-            // Eğer bakiye hiç tanımlanmamışsa (ilk kez) 2000 ver
-            if (savedUser.balance === undefined || savedUser.balance === null) {
-                savedUser.balance = 2000;
-                // Users listesini güncelle
-                const userIndex = users.findIndex(u => u.email === currentUser.email);
-                users[userIndex] = savedUser;
-                localStorage.setItem('users', JSON.stringify(users));
+        if (useFirebase) {
+            // Firebase'den al
+            setTimeout(async () => {
+                try {
+                    const usersSnapshot = await db.collection('users')
+                        .where('name', '==', currentUser.name)
+                        .get();
+                    
+                    if (!usersSnapshot.empty) {
+                        const userDoc = usersSnapshot.docs[0];
+                        const userData = userDoc.data();
+                        currentUser.id = userDoc.id;
+                        currentUser.balance = userData.balance || 2000;
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                        showMainPage();
+                    } else {
+                        showAuthPage();
+                    }
+                } catch (error) {
+                    console.error('Kullanıcı yükleme hatası:', error);
+                    showMainPage();
+                }
+            }, 500);
+        } else {
+            // LocalStorage'dan al
+            let users = JSON.parse(localStorage.getItem('users')) || [];
+            const savedUser = users.find(u => u.name === currentUser.name);
+            
+            if (savedUser) {
+                if (savedUser.balance === undefined || savedUser.balance === null) {
+                    savedUser.balance = 2000;
+                    const userIndex = users.findIndex(u => u.name === currentUser.name);
+                    users[userIndex] = savedUser;
+                    localStorage.setItem('users', JSON.stringify(users));
+                }
+                currentUser.balance = savedUser.balance;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
             }
-            // Güncel bakiyeyi currentUser'a aktar (0 olsa bile)
-            currentUser.balance = savedUser.balance;
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            
+            showMainPage();
         }
-        
-        showMainPage();
     } else {
         showAuthPage();
     }
@@ -187,25 +199,8 @@ function showMainPage() {
     document.getElementById('hamburgerMenu').style.display = 'flex';
     document.getElementById('userName').textContent = `👤 ${currentUser.name}`;
     
-    // Bakiye göster - users listesinden güncel bakiyeyi al
-    let users = JSON.parse(localStorage.getItem('users')) || [];
-    const savedUser = users.find(u => u.email === currentUser.email);
-    
-    if (savedUser) {
-        // Eğer bakiye hiç tanımlanmamışsa (ilk kez) 2000 ver
-        if (savedUser.balance === undefined || savedUser.balance === null) {
-            savedUser.balance = 2000;
-            const userIndex = users.findIndex(u => u.email === currentUser.email);
-            users[userIndex].balance = 2000;
-            localStorage.setItem('users', JSON.stringify(users));
-        }
-        // Güncel bakiyeyi göster (0 olsa bile)
-        currentUser.balance = savedUser.balance;
-        document.getElementById('userBalance').textContent = savedUser.balance;
-    }
-    
-    // currentUser'ı güncelle
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    // Bakiye göster
+    document.getElementById('userBalance').textContent = currentUser.balance || 2000;
     
     // Menüyü başlangıçta kapalı tut
     const menu = document.getElementById('sideMenu');
