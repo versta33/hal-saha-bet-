@@ -342,8 +342,12 @@ function showAdminPanel() {
 function loadAdminData() {
     let users = JSON.parse(localStorage.getItem('users')) || [];
     
+    console.log('Tüm kullanıcılar:', users);
+    
     // Admin'i listeden çıkar
     users = users.filter(u => u.email !== 'admin@admin.com');
+    
+    console.log('Admin hariç kullanıcılar:', users);
     
     // İstatistikler
     document.getElementById('totalUsers').textContent = users.length;
@@ -363,6 +367,11 @@ function loadAdminData() {
     // Kullanıcı tablosu
     const tbody = document.getElementById('usersTableBody');
     tbody.innerHTML = '';
+    
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #FFD700; font-size: 1.2em;">📭 Henüz kayıtlı kullanıcı yok</td></tr>';
+        return;
+    }
     
     users.forEach((user, index) => {
         const row = document.createElement('tr');

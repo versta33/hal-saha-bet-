@@ -22,14 +22,8 @@ body {
     0%, 100% {
         background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
     }
-    25% {
-        background: linear-gradient(135deg, #1a0f27 0%, #3a2043 50%, #5a2c64 100%);
-    }
     50% {
-        background: linear-gradient(135deg, #270f1a 0%, #432038 50%, #642c4a 100%);
-    }
-    75% {
-        background: linear-gradient(135deg, #0f1a27 0%, #203843 50%, #2c4a64 100%);
+        background: linear-gradient(135deg, #1a0f27 0%, #3a2043 50%, #5a2c64 100%);
     }
 }
 
@@ -506,12 +500,182 @@ h1 {
 }
 
 @media (max-width: 768px) {
+    /* Performans için animasyonları azalt */
+    body {
+        padding: 10px;
+        animation: none;
+        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    }
+    
+    body::before,
+    body::after {
+        display: none;
+    }
+    
+    .container {
+        padding: 20px;
+        animation: none;
+    }
+    
+    .balance-logo {
+        animation: none;
+    }
+    
+    h1 {
+        font-size: 2em;
+        margin-bottom: 30px;
+        animation: none;
+    }
+    
     .teams-container {
         flex-direction: column;
+        gap: 20px;
     }
     
     .vs {
-        transform: rotate(90deg);
+        transform: rotate(0deg);
+        font-size: 2em;
+        margin: 20px 0;
+    }
+    
+    .team {
+        padding: 25px;
+    }
+    
+    .team h2 {
+        font-size: 1.5em;
+    }
+    
+    .player {
+        padding: 12px 15px;
+        font-size: 1em;
+    }
+    
+    .bet-button {
+        padding: 15px 40px;
+        font-size: 1.1em;
+    }
+    
+    .modal-content {
+        width: 95%;
+        padding: 30px 20px;
+        margin: 5% auto;
+    }
+    
+    .user-info {
+        flex-direction: column;
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    .balance-container {
+        padding: 10px 20px;
+    }
+    
+    .balance-logo {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .balance-amount {
+        font-size: 1.3em;
+    }
+    
+    .hamburger-menu {
+        top: 15px;
+        left: 15px;
+        width: 45px;
+        height: 45px;
+    }
+    
+    .side-menu {
+        width: 280px;
+        left: -280px;
+    }
+    
+    .menu-item {
+        padding: 15px 20px;
+        font-size: 1.1em;
+    }
+    
+    /* Admin Panel Mobil */
+    .admin-panel {
+        padding: 15px;
+    }
+    
+    .admin-header {
+        flex-direction: column;
+        gap: 15px;
+        padding: 15px;
+    }
+    
+    .admin-header h1 {
+        font-size: 1.8em;
+    }
+    
+    .admin-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .users-table-container {
+        padding: 15px;
+        overflow-x: auto;
+    }
+    
+    .users-table {
+        font-size: 0.85em;
+        min-width: 600px;
+    }
+    
+    .users-table th,
+    .users-table td {
+        padding: 10px 8px;
+    }
+    
+    .admin-btn {
+        padding: 6px 10px;
+        font-size: 0.8em;
+        margin: 2px;
+    }
+    
+    /* Bahis Geçmişi Mobil */
+    .bet-card-body {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .bet-history-header {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .bet-team {
+        font-size: 1.2em;
+    }
+    
+    .bet-amount {
+        font-size: 1.1em;
+    }
+    
+    /* Auth Form Mobil */
+    .auth-box {
+        padding: 30px 20px;
+        width: 95%;
+    }
+    
+    .auth-box h2 {
+        font-size: 1.8em;
+    }
+    
+    .auth-form input {
+        padding: 15px 20px;
+        font-size: 1em;
+    }
+    
+    .auth-button {
+        padding: 15px;
+        font-size: 1.2em;
     }
 }
 
@@ -671,11 +835,9 @@ h1 {
 @keyframes logoSpin {
     0%, 100% {
         transform: rotate(0deg) scale(1);
-        box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
     }
     50% {
-        transform: rotate(180deg) scale(1.1);
-        box-shadow: 0 0 25px rgba(255, 215, 0, 0.9);
+        transform: rotate(180deg) scale(1.05);
     }
 }
 
