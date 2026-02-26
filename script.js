@@ -19,7 +19,7 @@ function closeModal() {
     modal.style.display = 'none';
 }
 
-async function confirmBet() {
+function confirmBet() {
     const betAmountInput = document.getElementById('betAmount');
     const amount = parseInt(betAmountInput.value);
     const teamName = document.getElementById('teamName').textContent;
@@ -30,34 +30,28 @@ async function confirmBet() {
         return;
     }
     
-    // Yetersiz bakiye kontrolü
-    if (amount > currentUser.balance) {
-        alert('❌ Yetersiz bakiye! Mevcut bakiyeniz: ' + currentUser.balance);
+    // currentUser kontrolü
+    if (!currentUser || !currentUser.name) {
+        alert('❌ Kullanıcı bilgisi bulunamadı!');
+        return;
+    }
+    
+    // Bakiye kontrolü
+    const currentBalance = currentUser.balance || 0;
+    if (amount > currentBalance) {
+        alert('❌ Yetersiz bakiye! Mevcut bakiyeniz: ' + currentBalance);
         return;
     }
     
     // Bakiyeden düş
-    currentUser.balance = currentUser.balance - amount;
+    currentUser.balance = currentBalance - amount;
     
-    if (useFirebase) {
-        // Firebase'de güncelle
-        try {
-            if (currentUser.id) {
-                await db.collection('users').doc(currentUser.id).update({
-                    balance: currentUser.balance
-                });
-            }
-        } catch (error) {
-            console.error('Firebase bakiye güncelleme hatası:', error);
-        }
-    } else {
-        // LocalStorage'da güncelle
-        let users = JSON.parse(localStorage.getItem('users')) || [];
-        const userIndex = users.findIndex(u => u.name === currentUser.name);
-        if (userIndex !== -1) {
-            users[userIndex].balance = currentUser.balance;
-            localStorage.setItem('users', JSON.stringify(users));
-        }
+    // LocalStorage'da güncelle
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    const userIndex = users.findIndex(u => u.name === currentUser.name);
+    if (userIndex !== -1) {
+        users[userIndex].balance = currentUser.balance;
+        localStorage.setItem('users', JSON.stringify(users));
     }
     
     // CurrentUser'ı güncelle
@@ -66,10 +60,6 @@ async function confirmBet() {
     // Bakiyeleri güncelle
     document.getElementById('userBalance').textContent = currentUser.balance;
     document.getElementById('modalBalance').textContent = currentUser.balance;
-    
-    // Sonuç mesajını göster
-    document.getElementById('betResult').style.display = 'block';
-    betAmountInput.value = '';
     
     // Bahis geçmişini kaydet
     let betHistory = JSON.parse(localStorage.getItem('betHistory_' + currentUser.name)) || [];
@@ -80,6 +70,12 @@ async function confirmBet() {
         resultDate: '01.03.2026 23:00'
     });
     localStorage.setItem('betHistory_' + currentUser.name, JSON.stringify(betHistory));
+    
+    // Sonuç mesajını göster
+    document.getElementById('betResult').style.display = 'block';
+    betAmountInput.value = '';
+    
+    alert('✅ Bahis başarıyla alındı!');
 }
 
 window.onclick = function(event) {
@@ -94,22 +90,12 @@ window.onclick = function(event) {
 
 // Kullanıcı Yönetimi
 let currentUser = null;
-let useFirebase = false;
+let useFirebase = false; // Firebase'i devre dışı bırak
 
 // Sayfa yüklendiğinde kontrol et
 window.onload = function() {
-    // Firebase kontrolü
-    setTimeout(() => {
-        if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
-            useFirebase = true;
-            console.log('✅ Firebase modu aktif');
-        } else {
-            useFirebase = false;
-            console.log('⚠️ LocalStorage modu aktif');
-        }
-        checkAuth();
-        initMusic();
-    }, 1000);
+    checkAuth();
+    initMusic();
 }
 
 // Müzik başlatma
@@ -146,47 +132,21 @@ function checkAuth() {
         }
         
         // Kullanıcının güncel bakiyesini users listesinden al
-        if (useFirebase) {
-            // Firebase'den al
-            setTimeout(async () => {
-                try {
-                    const usersSnapshot = await db.collection('users')
-                        .where('name', '==', currentUser.name)
-                        .get();
-                    
-                    if (!usersSnapshot.empty) {
-                        const userDoc = usersSnapshot.docs[0];
-                        const userData = userDoc.data();
-                        currentUser.id = userDoc.id;
-                        currentUser.balance = userData.balance || 2000;
-                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                        showMainPage();
-                    } else {
-                        showAuthPage();
-                    }
-                } catch (error) {
-                    console.error('Kullanıcı yükleme hatası:', error);
-                    showMainPage();
-                }
-            }, 500);
-        } else {
-            // LocalStorage'dan al
-            let users = JSON.parse(localStorage.getItem('users')) || [];
-            const savedUser = users.find(u => u.name === currentUser.name);
-            
-            if (savedUser) {
-                if (savedUser.balance === undefined || savedUser.balance === null) {
-                    savedUser.balance = 2000;
-                    const userIndex = users.findIndex(u => u.name === currentUser.name);
-                    users[userIndex] = savedUser;
-                    localStorage.setItem('users', JSON.stringify(users));
-                }
-                currentUser.balance = savedUser.balance;
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        let users = JSON.parse(localStorage.getItem('users')) || [];
+        const savedUser = users.find(u => u.name === currentUser.name);
+        
+        if (savedUser) {
+            if (savedUser.balance === undefined || savedUser.balance === null) {
+                savedUser.balance = 2000;
+                const userIndex = users.findIndex(u => u.name === currentUser.name);
+                users[userIndex] = savedUser;
+                localStorage.setItem('users', JSON.stringify(users));
             }
-            
-            showMainPage();
+            currentUser = savedUser;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
         }
+        
+        showMainPage();
     } else {
         showAuthPage();
     }
@@ -235,58 +195,31 @@ function showRegister() {
 }
 
 // Kayıt Formu
-document.getElementById('registerForm').addEventListener('submit', async function(e) {
+document.getElementById('registerForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
     const name = document.getElementById('registerName').value;
     const password = document.getElementById('registerPassword').value;
     
-    if (useFirebase) {
-        // Firebase ile kayıt
-        try {
-            // İsim kontrolü
-            const usersSnapshot = await db.collection('users').where('name', '==', name).get();
-            if (!usersSnapshot.empty) {
-                alert('❌ Bu isim zaten kayıtlı!');
-                return;
-            }
-            
-            // Yeni kullanıcı ekle
-            await db.collection('users').add({
-                name: name,
-                password: password,
-                balance: 2000,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            
-            alert('✅ Kayıt başarılı! 2000 bakiye hediye edildi! Şimdi giriş yapabilirsiniz.');
-            showLogin();
-            document.getElementById('registerForm').reset();
-        } catch (error) {
-            console.error('Firebase kayıt hatası:', error);
-            alert('❌ Kayıt sırasında hata oluştu: ' + error.message);
-        }
-    } else {
-        // LocalStorage ile kayıt
-        let users = JSON.parse(localStorage.getItem('users')) || [];
-        
-        if (users.find(u => u.name === name)) {
-            alert('❌ Bu isim zaten kayıtlı!');
-            return;
-        }
-        
-        const newUser = { name, password, balance: 2000 };
-        users.push(newUser);
-        localStorage.setItem('users', JSON.stringify(users));
-        
-        alert('✅ Kayıt başarılı! 2000 bakiye hediye edildi! Şimdi giriş yapabilirsiniz.');
-        showLogin();
-        document.getElementById('registerForm').reset();
+    // LocalStorage ile kayıt
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    
+    if (users.find(u => u.name === name)) {
+        alert('❌ Bu isim zaten kayıtlı!');
+        return;
     }
+    
+    const newUser = { name, password, balance: 2000 };
+    users.push(newUser);
+    localStorage.setItem('users', JSON.stringify(users));
+    
+    alert('✅ Kayıt başarılı! 2000 bakiye hediye edildi! Şimdi giriş yapabilirsiniz.');
+    showLogin();
+    document.getElementById('registerForm').reset();
 });
 
 // Giriş Formu
-document.getElementById('loginForm').addEventListener('submit', async function(e) {
+document.getElementById('loginForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
     const name = document.getElementById('loginName').value;
@@ -302,56 +235,25 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         return;
     }
     
-    if (useFirebase) {
-        // Firebase ile giriş
-        try {
-            const usersSnapshot = await db.collection('users')
-                .where('name', '==', name)
-                .where('password', '==', password)
-                .get();
-            
-            if (!usersSnapshot.empty) {
-                const userDoc = usersSnapshot.docs[0];
-                const userData = userDoc.data();
-                currentUser = {
-                    id: userDoc.id,
-                    name: userData.name,
-                    password: userData.password,
-                    balance: userData.balance || 2000
-                };
-                
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                alert('✅ Giriş başarılı!');
-                showMainPage();
-                document.getElementById('loginForm').reset();
-            } else {
-                alert('❌ İsim veya şifre hatalı!');
-            }
-        } catch (error) {
-            console.error('Firebase giriş hatası:', error);
-            alert('❌ Giriş sırasında hata oluştu: ' + error.message);
+    // LocalStorage ile giriş
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    const user = users.find(u => u.name === name && u.password === password);
+    
+    if (user) {
+        if (!user.balance && user.balance !== 0) {
+            user.balance = 2000;
+            const userIndex = users.findIndex(u => u.name === name);
+            users[userIndex] = user;
+            localStorage.setItem('users', JSON.stringify(users));
         }
-    } else {
-        // LocalStorage ile giriş
-        let users = JSON.parse(localStorage.getItem('users')) || [];
-        const user = users.find(u => u.name === name && u.password === password);
         
-        if (user) {
-            if (!user.balance && user.balance !== 0) {
-                user.balance = 2000;
-                const userIndex = users.findIndex(u => u.name === name);
-                users[userIndex] = user;
-                localStorage.setItem('users', JSON.stringify(users));
-            }
-            
-            currentUser = user;
-            localStorage.setItem('currentUser', JSON.stringify(user));
-            alert('✅ Giriş başarılı!');
-            showMainPage();
-            document.getElementById('loginForm').reset();
-        } else {
-            alert('❌ İsim veya şifre hatalı!');
-        }
+        currentUser = user;
+        localStorage.setItem('currentUser', JSON.stringify(user));
+        alert('✅ Giriş başarılı!');
+        showMainPage();
+        document.getElementById('loginForm').reset();
+    } else {
+        alert('❌ İsim veya şifre hatalı!');
     }
 });
 
@@ -405,33 +307,11 @@ function showAdminPanel() {
     loadAdminData();
 }
 
-async function loadAdminData() {
-    if (useFirebase) {
-        // Firebase'den kullanıcıları çek
-        try {
-            const usersSnapshot = await db.collection('users').get();
-            const users = [];
-            
-            usersSnapshot.forEach(doc => {
-                users.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
-            
-            console.log('Firebase kullanıcılar:', users);
-            displayAdminData(users);
-        } catch (error) {
-            console.error('Firebase veri çekme hatası:', error);
-            alert('❌ Kullanıcılar yüklenirken hata oluştu');
-        }
-    } else {
-        // LocalStorage'dan kullanıcıları çek
-        let users = JSON.parse(localStorage.getItem('users')) || [];
-        users = users.filter(u => u.email !== 'admin@admin.com');
-        console.log('LocalStorage kullanıcılar:', users);
-        displayAdminData(users);
-    }
+function loadAdminData() {
+    // LocalStorage'dan kullanıcıları çek
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    console.log('LocalStorage kullanıcılar:', users);
+    displayAdminData(users);
 }
 
 function displayAdminData(users) {
@@ -493,80 +373,42 @@ function displayAdminData(users) {
     });
 }
 
-async function editUserBalance(userId, userName) {
-    if (useFirebase) {
-        // Firebase'den kullanıcıyı bul
-        try {
-            const userDoc = await db.collection('users').doc(userId).get();
-            if (userDoc.exists) {
-                const userData = userDoc.data();
-                const newBalance = prompt(`${userData.name} için yeni bakiye girin:`, userData.balance || 0);
+function editUserBalance(userId, userName) {
+    // LocalStorage'dan kullanıcıyı bul
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    const user = users.find(u => u.name === userName);
+    
+    if (user) {
+        const newBalance = prompt(`${user.name} için yeni bakiye girin:`, user.balance || 0);
+        
+        if (newBalance !== null && newBalance !== '') {
+            const balance = parseInt(newBalance);
+            if (!isNaN(balance) && balance >= 0) {
+                const userIndex = users.findIndex(u => u.name === userName);
+                users[userIndex].balance = balance;
+                localStorage.setItem('users', JSON.stringify(users));
                 
-                if (newBalance !== null) {
-                    const balance = parseInt(newBalance);
-                    if (!isNaN(balance) && balance >= 0) {
-                        await db.collection('users').doc(userId).update({
-                            balance: balance
-                        });
-                        alert('✅ Bakiye güncellendi!');
-                        loadAdminData();
-                    } else {
-                        alert('❌ Geçerli bir sayı girin!');
-                    }
-                }
+                alert('✅ Bakiye güncellendi!');
+                loadAdminData();
+            } else {
+                alert('❌ Geçerli bir sayı girin!');
             }
-        } catch (error) {
-            console.error('Bakiye güncelleme hatası:', error);
-            alert('❌ Bakiye güncellenirken hata oluştu');
         }
     } else {
-        // LocalStorage'dan kullanıcıyı bul
-        let users = JSON.parse(localStorage.getItem('users')) || [];
-        const user = users.find(u => u.name === userName);
-        
-        if (user) {
-            const newBalance = prompt(`${user.name} için yeni bakiye girin:`, user.balance || 0);
-            
-            if (newBalance !== null) {
-                const balance = parseInt(newBalance);
-                if (!isNaN(balance) && balance >= 0) {
-                    const userIndex = users.findIndex(u => u.name === userName);
-                    users[userIndex].balance = balance;
-                    localStorage.setItem('users', JSON.stringify(users));
-                    
-                    alert('✅ Bakiye güncellendi!');
-                    loadAdminData();
-                } else {
-                    alert('❌ Geçerli bir sayı girin!');
-                }
-            }
-        }
+        alert('❌ Kullanıcı bulunamadı!');
     }
 }
 
-async function deleteUser(userId, userName) {
+function deleteUser(userId, userName) {
     if (confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?')) {
-        if (useFirebase) {
-            // Firebase'den sil
-            try {
-                await db.collection('users').doc(userId).delete();
-                localStorage.removeItem('betHistory_' + userName);
-                alert('✅ Kullanıcı silindi!');
-                loadAdminData();
-            } catch (error) {
-                console.error('Kullanıcı silme hatası:', error);
-                alert('❌ Kullanıcı silinirken hata oluştu');
-            }
-        } else {
-            // LocalStorage'dan sil
-            let users = JSON.parse(localStorage.getItem('users')) || [];
-            users = users.filter(u => u.name !== userName);
-            localStorage.setItem('users', JSON.stringify(users));
-            localStorage.removeItem('betHistory_' + userName);
-            
-            alert('✅ Kullanıcı silindi!');
-            loadAdminData();
-        }
+        // LocalStorage'dan sil
+        let users = JSON.parse(localStorage.getItem('users')) || [];
+        users = users.filter(u => u.name !== userName);
+        localStorage.setItem('users', JSON.stringify(users));
+        localStorage.removeItem('betHistory_' + userName);
+        
+        alert('✅ Kullanıcı silindi!');
+        loadAdminData();
     }
 }
 
