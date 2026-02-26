@@ -22,7 +22,7 @@
             
             <!-- Giriş Formu -->
             <form id="loginForm" class="auth-form">
-                <input type="email" id="loginEmail" placeholder="📧 E-posta" required>
+                <input type="text" id="loginName" placeholder="👤 İsim" required>
                 <input type="password" id="loginPassword" placeholder="🔒 Şifre" required>
                 <button type="submit" class="auth-button">Giriş Yap</button>
                 <p class="auth-switch">Hesabın yok mu? <span onclick="showRegister()">Kayıt Ol</span></p>
@@ -31,7 +31,6 @@
             <!-- Kayıt Formu -->
             <form id="registerForm" class="auth-form" style="display: none;">
                 <input type="text" id="registerName" placeholder="👤 İsim" required>
-                <input type="email" id="registerEmail" placeholder="📧 E-posta" required>
                 <input type="password" id="registerPassword" placeholder="🔒 Şifre" required>
                 <button type="submit" class="auth-button">Kayıt Ol</button>
                 <p class="auth-switch">Zaten hesabın var mı? <span onclick="showLogin()">Giriş Yap</span></p>
@@ -69,9 +68,9 @@
                     <tr>
                         <th>#</th>
                         <th>👤 İsim</th>
-                        <th>📧 E-posta</th>
                         <th>🔒 Şifre</th>
                         <th>💰 Bakiye</th>
+                        <th>🎲 Bahisler</th>
                         <th>⚙️ İşlemler</th>
                     </tr>
                 </thead>

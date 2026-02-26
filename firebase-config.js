@@ -11,17 +11,24 @@ const firebaseConfig = {
 
 // Firebase'i başlat
 let db;
-let auth;
 
 function initFirebase() {
-    if (typeof firebase !== 'undefined') {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-        auth = firebase.auth();
-        console.log('✅ Firebase başlatıldı');
-    } else {
-        console.log('⚠️ Firebase yüklenmedi, localStorage kullanılıyor');
+    try {
+        if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            console.log('✅ Firebase başlatıldı');
+            return true;
+        } else if (firebase.apps.length > 0) {
+            db = firebase.firestore();
+            console.log('✅ Firebase zaten başlatılmış');
+            return true;
+        }
+    } catch (error) {
+        console.error('❌ Firebase başlatma hatası:', error);
+        return false;
     }
+    return false;
 }
 
 // Sayfa yüklendiğinde Firebase'i başlat

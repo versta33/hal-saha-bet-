@@ -83,14 +83,14 @@ function confirmBet() {
     betAmountInput.value = '';
     
     // Bahis geçmişini kaydet
-    let betHistory = JSON.parse(localStorage.getItem('betHistory_' + currentUser.email)) || [];
+    let betHistory = JSON.parse(localStorage.getItem('betHistory_' + currentUser.name)) || [];
     betHistory.push({
         team: teamName,
         amount: amount,
         date: new Date().toLocaleString('tr-TR'),
         resultDate: '01.03.2026 23:00'
     });
-    localStorage.setItem('betHistory_' + currentUser.email, JSON.stringify(betHistory));
+    localStorage.setItem('betHistory_' + currentUser.name, JSON.stringify(betHistory));
 }
 
 window.onclick = function(event) {
@@ -244,23 +244,21 @@ document.getElementById('registerForm').addEventListener('submit', async functio
     e.preventDefault();
     
     const name = document.getElementById('registerName').value;
-    const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
     
     if (useFirebase) {
         // Firebase ile kayıt
         try {
-            // E-posta kontrolü
-            const usersSnapshot = await db.collection('users').where('email', '==', email).get();
+            // İsim kontrolü
+            const usersSnapshot = await db.collection('users').where('name', '==', name).get();
             if (!usersSnapshot.empty) {
-                alert('❌ Bu e-posta zaten kayıtlı!');
+                alert('❌ Bu isim zaten kayıtlı!');
                 return;
             }
             
             // Yeni kullanıcı ekle
             await db.collection('users').add({
                 name: name,
-                email: email,
                 password: password,
                 balance: 2000,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -277,12 +275,12 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         // LocalStorage ile kayıt
         let users = JSON.parse(localStorage.getItem('users')) || [];
         
-        if (users.find(u => u.email === email)) {
-            alert('❌ Bu e-posta zaten kayıtlı!');
+        if (users.find(u => u.name === name)) {
+            alert('❌ Bu isim zaten kayıtlı!');
             return;
         }
         
-        const newUser = { name, email, password, balance: 2000 };
+        const newUser = { name, password, balance: 2000 };
         users.push(newUser);
         localStorage.setItem('users', JSON.stringify(users));
         
@@ -296,12 +294,12 @@ document.getElementById('registerForm').addEventListener('submit', async functio
 document.getElementById('loginForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    const email = document.getElementById('loginEmail').value;
+    const name = document.getElementById('loginName').value;
     const password = document.getElementById('loginPassword').value;
     
     // Admin kontrolü
-    if (email === 'admin@admin.com' && password === 'admin123') {
-        currentUser = { name: 'Admin', email: 'admin@admin.com', password: 'admin123' };
+    if (name === 'admin' && password === 'admin123') {
+        currentUser = { name: 'Admin', password: 'admin123' };
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
         alert('✅ Admin girişi başarılı!');
         showAdminPanel();
@@ -313,7 +311,7 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         // Firebase ile giriş
         try {
             const usersSnapshot = await db.collection('users')
-                .where('email', '==', email)
+                .where('name', '==', name)
                 .where('password', '==', password)
                 .get();
             
@@ -323,7 +321,6 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
                 currentUser = {
                     id: userDoc.id,
                     name: userData.name,
-                    email: userData.email,
                     password: userData.password,
                     balance: userData.balance || 2000
                 };
@@ -333,7 +330,7 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
                 showMainPage();
                 document.getElementById('loginForm').reset();
             } else {
-                alert('❌ E-posta veya şifre hatalı!');
+                alert('❌ İsim veya şifre hatalı!');
             }
         } catch (error) {
             console.error('Firebase giriş hatası:', error);
@@ -342,12 +339,12 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
     } else {
         // LocalStorage ile giriş
         let users = JSON.parse(localStorage.getItem('users')) || [];
-        const user = users.find(u => u.email === email && u.password === password);
+        const user = users.find(u => u.name === name && u.password === password);
         
         if (user) {
             if (!user.balance && user.balance !== 0) {
                 user.balance = 2000;
-                const userIndex = users.findIndex(u => u.email === email);
+                const userIndex = users.findIndex(u => u.name === name);
                 users[userIndex] = user;
                 localStorage.setItem('users', JSON.stringify(users));
             }
@@ -358,7 +355,7 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
             showMainPage();
             document.getElementById('loginForm').reset();
         } else {
-            alert('❌ E-posta veya şifre hatalı!');
+            alert('❌ İsim veya şifre hatalı!');
         }
     }
 });
@@ -451,7 +448,7 @@ function displayAdminData(users) {
     
     users.forEach(user => {
         totalBalance += user.balance || 0;
-        let betHistory = JSON.parse(localStorage.getItem('betHistory_' + user.email)) || [];
+        let betHistory = JSON.parse(localStorage.getItem('betHistory_' + user.name)) || [];
         totalBets += betHistory.length;
     });
     
@@ -468,24 +465,40 @@ function displayAdminData(users) {
     }
     
     users.forEach((user, index) => {
+        const userId = user.id || user.name;
+        const userName = user.name;
+        
+        // Bahis geçmişini al
+        let betHistory = JSON.parse(localStorage.getItem('betHistory_' + userName)) || [];
+        let betDetails = '';
+        
+        if (betHistory.length > 0) {
+            betDetails = '<div style="font-size: 0.9em;">';
+            betHistory.forEach((bet, i) => {
+                betDetails += `<div style="margin: 3px 0; color: #00ffff;">${i+1}. ${bet.team}: ${bet.amount} 💰</div>`;
+            });
+            betDetails += '</div>';
+        } else {
+            betDetails = '<span style="color: #888;">Bahis yok</span>';
+        }
+        
         const row = document.createElement('tr');
-        const userId = user.id || user.email;
         row.innerHTML = `
             <td>${index + 1}</td>
-            <td>${user.name}</td>
-            <td>${user.email}</td>
+            <td>${userName}</td>
             <td>${user.password}</td>
             <td class="balance-cell">${user.balance || 0}</td>
+            <td>${betDetails}</td>
             <td>
-                <button class="admin-btn edit-btn" onclick="editUserBalance('${userId}', '${user.email}')">✏️ Düzenle</button>
-                <button class="admin-btn delete-btn" onclick="deleteUser('${userId}', '${user.email}')">🗑️ Sil</button>
+                <button class="admin-btn edit-btn" onclick="editUserBalance('${userId}', '${userName}')">✏️ Düzenle</button>
+                <button class="admin-btn delete-btn" onclick="deleteUser('${userId}', '${userName}')">🗑️ Sil</button>
             </td>
         `;
         tbody.appendChild(row);
     });
 }
 
-async function editUserBalance(userId, email) {
+async function editUserBalance(userId, userName) {
     if (useFirebase) {
         // Firebase'den kullanıcıyı bul
         try {
@@ -514,7 +527,7 @@ async function editUserBalance(userId, email) {
     } else {
         // LocalStorage'dan kullanıcıyı bul
         let users = JSON.parse(localStorage.getItem('users')) || [];
-        const user = users.find(u => u.email === email);
+        const user = users.find(u => u.name === userName);
         
         if (user) {
             const newBalance = prompt(`${user.name} için yeni bakiye girin:`, user.balance || 0);
@@ -522,7 +535,7 @@ async function editUserBalance(userId, email) {
             if (newBalance !== null) {
                 const balance = parseInt(newBalance);
                 if (!isNaN(balance) && balance >= 0) {
-                    const userIndex = users.findIndex(u => u.email === email);
+                    const userIndex = users.findIndex(u => u.name === userName);
                     users[userIndex].balance = balance;
                     localStorage.setItem('users', JSON.stringify(users));
                     
@@ -536,13 +549,13 @@ async function editUserBalance(userId, email) {
     }
 }
 
-async function deleteUser(userId, email) {
+async function deleteUser(userId, userName) {
     if (confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?')) {
         if (useFirebase) {
             // Firebase'den sil
             try {
                 await db.collection('users').doc(userId).delete();
-                localStorage.removeItem('betHistory_' + email);
+                localStorage.removeItem('betHistory_' + userName);
                 alert('✅ Kullanıcı silindi!');
                 loadAdminData();
             } catch (error) {
@@ -552,9 +565,9 @@ async function deleteUser(userId, email) {
         } else {
             // LocalStorage'dan sil
             let users = JSON.parse(localStorage.getItem('users')) || [];
-            users = users.filter(u => u.email !== email);
+            users = users.filter(u => u.name !== userName);
             localStorage.setItem('users', JSON.stringify(users));
-            localStorage.removeItem('betHistory_' + email);
+            localStorage.removeItem('betHistory_' + userName);
             
             alert('✅ Kullanıcı silindi!');
             loadAdminData();
@@ -579,7 +592,7 @@ function showMainContent() {
 }
 
 function loadBetHistory() {
-    let betHistory = JSON.parse(localStorage.getItem('betHistory_' + currentUser.email)) || [];
+    let betHistory = JSON.parse(localStorage.getItem('betHistory_' + currentUser.name)) || [];
     
     // İstatistikler
     document.getElementById('totalBetsCount').textContent = betHistory.length;
