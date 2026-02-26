@@ -90,7 +90,6 @@ window.onclick = function(event) {
 
 // Kullanıcı Yönetimi
 let currentUser = null;
-let useFirebase = false; // Firebase'i devre dışı bırak
 
 // Sayfa yüklendiğinde kontrol et
 window.onload = function() {
