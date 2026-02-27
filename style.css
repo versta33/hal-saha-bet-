@@ -1332,19 +1332,22 @@ h1 {
 }
 
 .odds {
-    background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
     color: #000;
-    padding: 12px 20px;
-    border-radius: 10px;
-    font-size: 1.3em;
-    font-weight: bold;
+    padding: 18px 25px;
+    border-radius: 15px;
+    font-size: 1.6em;
+    font-weight: 900;
     margin: 20px 0 15px 0;
-    box-shadow: 0 5px 15px rgba(0, 255, 136, 0.3);
+    box-shadow: 0 8px 20px rgba(255, 215, 0, 0.5);
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+    letter-spacing: 2px;
+    border: 3px solid #fff;
 }
 
 .team-b .odds {
-    background: linear-gradient(135deg, #ff3366 0%, #cc0044 100%);
-    box-shadow: 0 5px 15px rgba(255, 51, 102, 0.3);
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    box-shadow: 0 8px 20px rgba(255, 215, 0, 0.5);
 }
 
 .win-amount {
