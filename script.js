@@ -1,4 +1,4 @@
-function showBet(teamName) {
+function showBet(teamName, odds) {
     const modal = document.getElementById('betModal');
     const teamNameElement = document.getElementById('teamName');
     const modalBalance = document.getElementById('modalBalance');
@@ -6,10 +6,14 @@ function showBet(teamName) {
     const betAmount = document.getElementById('betAmount');
     
     // Güncel bakiyeyi göster
-    teamNameElement.textContent = teamName;
+    teamNameElement.textContent = teamName + ` (Oran: %${odds})`;
     modalBalance.textContent = currentUser.balance || 0;
     betResult.style.display = 'none';
     betAmount.value = '';
+    
+    // Oran bilgisini sakla
+    modal.setAttribute('data-odds', odds);
+    modal.setAttribute('data-team', teamName);
     
     modal.style.display = 'block';
 }
@@ -22,7 +26,9 @@ function closeModal() {
 function confirmBet() {
     const betAmountInput = document.getElementById('betAmount');
     const amount = parseInt(betAmountInput.value);
-    const teamName = document.getElementById('teamName').textContent;
+    const modal = document.getElementById('betModal');
+    const teamName = modal.getAttribute('data-team');
+    const odds = parseInt(modal.getAttribute('data-odds'));
     
     // Kontroller
     if (!amount || amount <= 0) {
@@ -42,6 +48,9 @@ function confirmBet() {
         alert('❌ Yetersiz bakiye! Mevcut bakiyeniz: ' + currentBalance);
         return;
     }
+    
+    // Kazanç hesapla
+    const potentialWin = amount + (amount * odds / 100);
     
     // Bakiyeden düş
     const newBalance = currentBalance - amount;
@@ -78,6 +87,8 @@ function confirmBet() {
     const betData = {
         team: teamName,
         amount: amount,
+        odds: odds,
+        potentialWin: potentialWin,
         date: new Date().toLocaleString('tr-TR'),
         resultDate: '01.03.2026 23:00'
     };
@@ -105,7 +116,7 @@ function confirmBet() {
     document.getElementById('betResult').style.display = 'block';
     betAmountInput.value = '';
     
-    alert('✅ Bahis başarıyla alındı!');
+    alert(`✅ Bahis başarıyla alındı!\n💰 Yatırılan: ${amount} TL\n🎯 Kazanç Oranı: %${odds}\n💵 Kazanırsanız: ${potentialWin} TL alacaksınız`);
 }
 
 window.onclick = function(event) {
@@ -654,7 +665,9 @@ function loadBetHistory() {
             </div>
             <div class="bet-card-body">
                 <div class="bet-team">⚽ ${bet.team}</div>
-                <div class="bet-amount">💰 ${bet.amount} Bahis</div>
+                <div class="bet-amount">💰 ${bet.amount} TL Bahis</div>
+                <div class="bet-odds">🎯 Oran: %${bet.odds || 0}</div>
+                <div class="bet-potential">💵 Kazanç: ${bet.potentialWin || bet.amount} TL</div>
             </div>
             <div class="bet-card-footer">
                 <span class="bet-result-date">🕐 Sonuç: ${bet.resultDate}</span>
