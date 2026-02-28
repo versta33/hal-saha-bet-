@@ -1,4 +1,4 @@
-function showBet(teamName, odds) {
+function showBet(teamName, displayOdds, actualOdds) {
     const modal = document.getElementById('betModal');
     const teamNameElement = document.getElementById('teamName');
     const modalBalance = document.getElementById('modalBalance');
@@ -6,13 +6,14 @@ function showBet(teamName, odds) {
     const betAmount = document.getElementById('betAmount');
     
     // Güncel bakiyeyi göster
-    teamNameElement.textContent = teamName + ` (Oran: %${odds})`;
+    teamNameElement.textContent = teamName + ` (Oran: %${displayOdds})`;
     modalBalance.textContent = currentUser.balance || 0;
     betResult.style.display = 'none';
     betAmount.value = '';
     
-    // Oran bilgisini sakla
-    modal.setAttribute('data-odds', odds);
+    // Oran bilgisini sakla (gerçek oran %400 veya %200)
+    modal.setAttribute('data-odds', actualOdds);
+    modal.setAttribute('data-display-odds', displayOdds);
     modal.setAttribute('data-team', teamName);
     
     modal.style.display = 'block';
@@ -28,7 +29,8 @@ function confirmBet() {
     const amount = parseInt(betAmountInput.value);
     const modal = document.getElementById('betModal');
     const teamName = modal.getAttribute('data-team');
-    const odds = parseInt(modal.getAttribute('data-odds'));
+    const actualOdds = parseInt(modal.getAttribute('data-odds'));
+    const displayOdds = parseInt(modal.getAttribute('data-display-odds'));
     
     // Kontroller
     if (!amount || amount <= 0) {
@@ -49,16 +51,29 @@ function confirmBet() {
         return;
     }
     
-    // Kazanç hesapla
-    const potentialWin = amount + (amount * odds / 100);
+    // Kazanç hesapla (A takımı için 4 kat, B takımı için 2 kat)
+    const multiplier = displayOdds === 4 ? 4 : 2;
+    const potentialWin = amount * multiplier;
     
     // Bakiyeden düş
     const newBalance = currentBalance - amount;
     currentUser.balance = newBalance;
     
-    // Firebase veya LocalStorage'a kaydet
+    // ÖNCE LocalStorage users listesini güncelle
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    const userIndex = users.findIndex(u => u.name === currentUser.name);
+    if (userIndex !== -1) {
+        users[userIndex].balance = newBalance;
+        localStorage.setItem('users', JSON.stringify(users));
+        console.log('✅ Users listesi güncellendi, yeni bakiye:', newBalance);
+    }
+    
+    // SONRA currentUser'ı güncelle
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    console.log('✅ CurrentUser güncellendi, yeni bakiye:', newBalance);
+    
+    // Firebase varsa ona da kaydet
     if (firebaseInitialized && currentUser.id) {
-        // Firebase'e kaydet
         db.collection('users').doc(currentUser.id).update({
             balance: newBalance
         }).then(() => {
@@ -66,20 +81,9 @@ function confirmBet() {
         }).catch(error => {
             console.error('Firebase kayıt hatası:', error);
         });
-    } else {
-        // LocalStorage'a kaydet
-        let users = JSON.parse(localStorage.getItem('users')) || [];
-        const userIndex = users.findIndex(u => u.name === currentUser.name);
-        if (userIndex !== -1) {
-            users[userIndex].balance = newBalance;
-            localStorage.setItem('users', JSON.stringify(users));
-        }
     }
     
-    // CurrentUser'ı güncelle
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    
-    // Bakiyeleri güncelle
+    // Ekrandaki bakiyeleri güncelle
     document.getElementById('userBalance').textContent = newBalance;
     document.getElementById('modalBalance').textContent = newBalance;
     
@@ -87,14 +91,14 @@ function confirmBet() {
     const betData = {
         team: teamName,
         amount: amount,
-        odds: odds,
+        odds: displayOdds,
+        multiplier: multiplier,
         potentialWin: potentialWin,
         date: new Date().toLocaleString('tr-TR'),
         resultDate: '01.03.2026 23:00'
     };
     
     if (firebaseInitialized && currentUser.id) {
-        // Firebase'e bahis geçmişini kaydet
         db.collection('bets').add({
             userId: currentUser.id,
             userName: currentUser.name,
@@ -107,7 +111,7 @@ function confirmBet() {
         });
     }
     
-    // LocalStorage'a da kaydet (yedek)
+    // LocalStorage'a bahis geçmişini kaydet
     let betHistory = JSON.parse(localStorage.getItem('betHistory_' + currentUser.name)) || [];
     betHistory.push(betData);
     localStorage.setItem('betHistory_' + currentUser.name, JSON.stringify(betHistory));
@@ -116,7 +120,7 @@ function confirmBet() {
     document.getElementById('betResult').style.display = 'block';
     betAmountInput.value = '';
     
-    alert(`✅ Bahis başarıyla alındı!\n💰 Yatırılan: ${amount} TL\n🎯 Kazanç Oranı: %${odds}\n💵 Kazanırsanız: ${potentialWin} TL alacaksınız`);
+    alert(`✅ Bahis başarıyla alındı!\n💰 Yatırılan: ${amount} TL\n🎯 Kazanç Oranı: %${displayOdds}\n💵 Kazanırsanız: ${potentialWin} TL alacaksınız (${multiplier}x)`);
 }
 
 window.onclick = function(event) {
@@ -171,20 +175,30 @@ function checkAuth() {
             return;
         }
         
-        // Kullanıcının güncel bakiyesini users listesinden al
+        // Users listesinden güncel bakiyeyi al
         let users = JSON.parse(localStorage.getItem('users')) || [];
         const savedUser = users.find(u => u.name === currentUser.name);
         
-        if (savedUser) {
-            if (savedUser.balance === undefined || savedUser.balance === null) {
+        if (savedUser && savedUser.balance !== undefined && savedUser.balance !== null) {
+            // Users listesindeki bakiye varsa onu kullan
+            currentUser.balance = savedUser.balance;
+            console.log('✅ Users listesinden bakiye alındı:', currentUser.balance);
+        } else if (currentUser.balance === undefined || currentUser.balance === null) {
+            // Hiçbir yerde bakiye yoksa 2000 ver
+            currentUser.balance = 2000;
+            console.log('⚠️ Bakiye bulunamadı, 2000 verildi');
+            
+            // Users listesine de kaydet
+            if (savedUser) {
                 savedUser.balance = 2000;
                 const userIndex = users.findIndex(u => u.name === currentUser.name);
                 users[userIndex] = savedUser;
                 localStorage.setItem('users', JSON.stringify(users));
             }
-            currentUser = savedUser;
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
         }
+        
+        // currentUser'ı güncelle
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
         
         showMainPage();
     } else {
@@ -199,8 +213,13 @@ function showMainPage() {
     document.getElementById('hamburgerMenu').style.display = 'flex';
     document.getElementById('userName').textContent = `👤 ${currentUser.name}`;
     
-    // Bakiye göster
-    document.getElementById('userBalance').textContent = currentUser.balance || 2000;
+    // Ana içeriği göster, bahis geçmişini gizle
+    document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('betHistoryPage').style.display = 'none';
+    
+    // Bakiye göster - currentUser'daki güncel bakiyeyi kullan
+    const currentBalance = currentUser.balance !== undefined && currentUser.balance !== null ? currentUser.balance : 2000;
+    document.getElementById('userBalance').textContent = currentBalance;
     
     // Menüyü başlangıçta kapalı tut
     const menu = document.getElementById('sideMenu');
